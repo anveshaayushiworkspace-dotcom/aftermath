@@ -4,21 +4,18 @@ from datetime import datetime, timezone
 import pandas as pd
 import os
 import requests
-import json
 from fastapi.middleware.cors import CORSMiddleware
 
-# --------------------
-# APP SETUP
-# --------------------
+
 app = FastAPI()
 
-# ✅ CORS (LOCAL + VERCEL FRONTEND)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5174",
         "http://127.0.0.1:5174",
-        "https://aftermathh.vercel.app",   
+        "https://aftermathh.vercel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -35,11 +32,9 @@ GEMINI_URL = (
 )
 
 if not GEMINI_API_KEY:
-    raise RuntimeError("GEMINI_API_KEY is not set in environment variables")
+    raise RuntimeError("GEMINI_API_KEY is not set")
 
-# --------------------
-# MODELS
-# --------------------
+
 class Issue(BaseModel):
     title: str
     status: str
@@ -55,7 +50,7 @@ class IssuePayload(BaseModel):
 # --------------------
 def days_unresolved(created_at: str) -> int:
     """
-    Handles Firestore ISO timestamps safely (UTC aware)
+    Safely handle Firestore ISO timestamps (UTC-aware)
     """
     created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
     now = datetime.now(timezone.utc)
@@ -66,10 +61,14 @@ def days_unresolved(created_at: str) -> int:
 # --------------------
 @app.get("/")
 def health_check():
-    """
-    Simple health check so Render / browser doesn't show 404
-    """
     return {"status": "Aftermath backend running"}
+
+@app.post("/debug")
+def debug(payload: dict):
+    return {
+        "received": payload,
+        "status": "OK"
+    }
 
 @app.post("/after-math")
 def aftermath(payload: IssuePayload):
@@ -91,19 +90,23 @@ Write ONE short, clear, public-facing sentence stating:
 - whether it is unresolved or resolved
 - how long
 - what the admin last said
-"""
+""".strip()
 
         gemini_payload = {
             "contents": [
                 {
-                    "parts": [{"text": prompt.strip()}]
+                    "parts": [{"text": prompt}]
                 }
             ]
         }
 
+      
         response = requests.post(
             f"{GEMINI_URL}?key={GEMINI_API_KEY}",
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "User-Agent": "Aftermath/1.0"
+            },
             json=gemini_payload,
             timeout=30,
         )
