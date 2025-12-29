@@ -2,6 +2,8 @@ import { useEffect, useState } from "react"
 import { collection, getDocs } from "firebase/firestore"
 import { db } from "../firebase"
 
+const API_URL = import.meta.env.VITE_API_URL
+
 export default function PublicDashboard({ onGoToLogin }) {
   const [issues, setIssues] = useState([])
   const [aftermath, setAftermath] = useState([])
@@ -27,6 +29,11 @@ export default function PublicDashboard({ onGoToLogin }) {
   /* ---------------- AI AFTERMATH ---------------- */
   const generateAftermath = async (issuesData) => {
     if (!issuesData || issuesData.length === 0) return
+    if (!API_URL) {
+      console.error("VITE_API_URL is not defined")
+      setErrorAI(true)
+      return
+    }
 
     setLoadingAI(true)
     setErrorAI(false)
@@ -43,7 +50,7 @@ export default function PublicDashboard({ onGoToLogin }) {
         })),
       }
 
-      const res = await fetch("http://127.0.0.1:8000/after-math", {
+      const res = await fetch(`${API_URL}/after-math`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -67,20 +74,17 @@ export default function PublicDashboard({ onGoToLogin }) {
 
   return (
     <div style={styles.container}>
-      {/* LOGIN */}
       <button onClick={onGoToLogin} style={styles.loginBtn}>
         Go to Login
       </button>
 
       <h1 style={styles.title}>Public Accountability Dashboard</h1>
 
-      {/* STATS */}
       <div style={styles.statsRow}>
         <StatCard label="Open Issues" value={openIssues} />
         <StatCard label="Escalated Issues" value={escalated} />
       </div>
 
-      {/* AFTERMATH */}
       <h2 style={styles.sectionTitle}>Aftermath (AI-Generated Updates)</h2>
 
       {loadingAI && <p style={{ color: "#666" }}>Generating updates…</p>}
@@ -97,7 +101,6 @@ export default function PublicDashboard({ onGoToLogin }) {
           </div>
         ))}
 
-      {/* ISSUES */}
       <h2 style={styles.sectionTitle}>Reported Issues</h2>
 
       <div style={styles.issueList}>
