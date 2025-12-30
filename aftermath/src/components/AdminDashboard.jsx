@@ -20,21 +20,17 @@ export default function AdminDashboard() {
       }))
       setIssues(data)
     })
-
     return () => unsub()
   }, [])
 
-  const markResolved = async (id) => {
+  const updateStatus = async (id, status) => {
     await updateDoc(doc(db, "issues", id), {
-      status: "resolved",
-      resolvedAt: serverTimestamp(),
-    })
-  }
-
-  const escalate = async (id, count = 0) => {
-    await updateDoc(doc(db, "issues", id), {
-      escalationCount: count + 1,
-      status: "escalated",
+      status,
+      updatedAt: serverTimestamp(),
+      ...(status === "resolved" && {
+        adminResolvedAt: serverTimestamp(),
+        adminResolved: true,
+      }),
     })
   }
 
@@ -59,8 +55,8 @@ export default function AdminDashboard() {
                 <th>Title</th>
                 <th>Location</th>
                 <th>Status</th>
-                <th>Escalations</th>
-                <th>Actions</th>
+                <th>Last Update</th>
+                <th>Action</th>
               </tr>
             </thead>
 
@@ -69,6 +65,7 @@ export default function AdminDashboard() {
                 <tr key={issue.id}>
                   <td>{issue.title}</td>
                   <td>{issue.location || "—"}</td>
+
                   <td>
                     <span
                       style={{
@@ -76,41 +73,41 @@ export default function AdminDashboard() {
                         background:
                           issue.status === "resolved"
                             ? "#dcfce7"
-                            : issue.status === "escalated"
-                            ? "#fee2e2"
-                            : "#e0f2fe",
+                            : issue.status === "ongoing"
+                            ? "#e0f2fe"
+                            : "#fef3c7",
                         color:
                           issue.status === "resolved"
                             ? "#166534"
-                            : issue.status === "escalated"
-                            ? "#991b1b"
-                            : "#075985",
+                            : issue.status === "ongoing"
+                            ? "#075985"
+                            : "#92400e",
                       }}
                     >
                       {issue.status}
                     </span>
                   </td>
-                  <td>{issue.escalationCount || 0}</td>
-                  <td>
-                    <div style={styles.actions}>
-                      {issue.status !== "resolved" && (
-                        <button
-                          style={styles.resolveBtn}
-                          onClick={() => markResolved(issue.id)}
-                        >
-                          Resolve
-                        </button>
-                      )}
 
-                      <button
-                        style={styles.escalateBtn}
-                        onClick={() =>
-                          escalate(issue.id, issue.escalationCount || 0)
-                        }
-                      >
-                        Escalate
-                      </button>
-                    </div>
+                  <td>
+                    {issue.updatedAt
+                      ? new Date(
+                          issue.updatedAt.seconds * 1000
+                        ).toLocaleDateString()
+                      : "—"}
+                  </td>
+
+                  <td>
+                    <select
+                      value={issue.status}
+                      onChange={(e) =>
+                        updateStatus(issue.id, e.target.value)
+                      }
+                      style={styles.select}
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="ongoing">Ongoing</option>
+                      <option value="resolved">Resolved</option>
+                    </select>
                   </td>
                 </tr>
               ))}
@@ -161,24 +158,10 @@ const styles = {
     fontWeight: 600,
     textTransform: "capitalize",
   },
-  actions: {
-    display: "flex",
-    gap: "8px",
-  },
-  resolveBtn: {
-    background: "#22c55e",
-    color: "#fff",
-    border: "none",
+  select: {
     padding: "6px 10px",
     borderRadius: "6px",
-    cursor: "pointer",
-  },
-  escalateBtn: {
-    background: "#f97316",
-    color: "#fff",
-    border: "none",
-    padding: "6px 10px",
-    borderRadius: "6px",
+    border: "1px solid #d1d5db",
     cursor: "pointer",
   },
 }
