@@ -1,167 +1,125 @@
-import { useEffect, useState } from "react"
-import {
-  collection,
-  onSnapshot,
-  doc,
-  updateDoc,
-  serverTimestamp,
-} from "firebase/firestore"
-import { signOut } from "firebase/auth"
-import { db, auth } from "../firebase"
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from datetime import datetime, timezone
+import pandas as pd
+import os
+import requests
 
-export default function AdminDashboard() {
-  const [issues, setIssues] = useState([])
+app = FastAPI()
 
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, "issues"), (snapshot) => {
-      const data = snapshot.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      }))
-      setIssues(data)
-    })
-    return () => unsub()
-  }, [])
+# --------------------
+# CORS
+# --------------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+        "https://aftermathh.vercel.app",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-  const updateStatus = async (id, status) => {
-    await updateDoc(doc(db, "issues", id), {
-      status,
-      updatedAt: serverTimestamp(),
-      ...(status === "resolved" && {
-        adminResolvedAt: serverTimestamp(),
-        adminResolved: true,
-      }),
-    })
-  }
+# --------------------
+# GEMINI CONFIG (FIXED)
+# --------------------
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    raise RuntimeError("GEMINI_API_KEY is not set")
 
-  return (
-    <>
-      {/* TOP BAR */}
-      <div style={styles.navbar}>
-        <h2 style={{ margin: 0 }}>Admin Dashboard</h2>
-        <button onClick={() => signOut(auth)} style={styles.logoutBtn}>
-          Logout
-        </button>
-      </div>
+GEMINI_URL = (
+    "https://generativelanguage.googleapis.com/v1/models/"
+    "gemini-1.5-flash:generateContent"
+)
 
-      {/* CONTENT */}
-      <div style={styles.container}>
-        {issues.length === 0 ? (
-          <p>No issues reported.</p>
-        ) : (
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Location</th>
-                <th>Status</th>
-                <th>Last Update</th>
-                <th>Action</th>
-              </tr>
-            </thead>
+# --------------------
+# MODELS
+# --------------------
+class Issue(BaseModel):
+    title: str
+    status: str
+    createdAt: str
+    adminNote: str | None = ""
 
-            <tbody>
-              {issues.map((issue) => (
-                <tr key={issue.id}>
-                  <td>{issue.title}</td>
-                  <td>{issue.location || "—"}</td>
 
-                  <td>
-                    <span
-                      style={{
-                        ...styles.status,
-                        background:
-                          issue.status === "resolved"
-                            ? "#dcfce7"
-                            : issue.status === "ongoing"
-                            ? "#e0f2fe"
-                            : "#fef3c7",
-                        color:
-                          issue.status === "resolved"
-                            ? "#166534"
-                            : issue.status === "ongoing"
-                            ? "#075985"
-                            : "#92400e",
-                      }}
-                    >
-                      {issue.status}
-                    </span>
-                  </td>
+class IssuePayload(BaseModel):
+    issues: list[Issue]
 
-                  <td>
-                    {issue.updatedAt
-                      ? new Date(
-                          issue.updatedAt.seconds * 1000
-                        ).toLocaleDateString()
-                      : "—"}
-                  </td>
+# --------------------
+# HELPERS
+# --------------------
+def days_unresolved(created_at: str) -> int:
+    created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+    now = datetime.now(timezone.utc)
+    return max((now - created).days, 0)
 
-                  <td>
-                    <select
-                      value={issue.status}
-                      onChange={(e) =>
-                        updateStatus(issue.id, e.target.value)
-                      }
-                      style={styles.select}
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="ongoing">Ongoing</option>
-                      <option value="resolved">Resolved</option>
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-    </>
-  )
-}
+# --------------------
+# ROUTES
+# --------------------
+@app.get("/")
+def health_check():
+    return {"status": "Aftermath backend running"}
 
-/* STYLES */
-const styles = {
-  navbar: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "16px 28px",
-    borderBottom: "1px solid #e5e7eb",
-    background: "#fff",
-  },
-  logoutBtn: {
-    background: "#ef4444",
-    color: "#fff",
-    border: "none",
-    padding: "8px 14px",
-    borderRadius: "6px",
-    cursor: "pointer",
-  },
-  container: {
-    maxWidth: "1100px",
-    margin: "30px auto",
-    padding: "0 20px",
-    fontFamily: "system-ui, sans-serif",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    background: "#fff",
-    boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
-    borderRadius: "12px",
-    overflow: "hidden",
-  },
-  status: {
-    padding: "4px 10px",
-    borderRadius: "999px",
-    fontSize: "12px",
-    fontWeight: 600,
-    textTransform: "capitalize",
-  },
-  select: {
-    padding: "6px 10px",
-    borderRadius: "6px",
-    border: "1px solid #d1d5db",
-    cursor: "pointer",
-  },
-}
+@app.post("/debug")
+def debug(payload: dict):
+    return {"received": payload, "status": "OK"}
+
+@app.post("/after-math")
+def aftermath(payload: IssuePayload):
+    try:
+        df = pd.DataFrame([i.dict() for i in payload.issues])
+        responses = []
+
+        for _, row in df.iterrows():
+            days = days_unresolved(row["createdAt"])
+
+            prompt = f"""
+Issue title: {row['title']}
+Status: {row['status']}
+Days unresolved: {days}
+Admin note: {row.get('adminNote', '')}
+
+Write ONE short, clear, public-facing sentence stating:
+- issue name
+- whether it is unresolved or resolved
+- how long
+- what the admin last said
+""".strip()
+
+            gemini_payload = {
+                "contents": [
+                    {
+                        "parts": [{"text": prompt}]
+                    }
+                ]
+            }
+
+            r = requests.post(
+                f"{GEMINI_URL}?key={GEMINI_API_KEY}",
+                headers={"Content-Type": "application/json"},
+                json=gemini_payload,
+                timeout=30,
+            )
+
+            r.raise_for_status()
+
+            text = (
+                r.json()
+                .get("candidates", [{}])[0]
+                .get("content", {})
+                .get("parts", [{}])[0]
+                .get("text", "")
+            )
+
+            responses.append(text)
+
+        return {"aftermath": responses}
+
+    except requests.RequestException as e:
+        raise HTTPException(status_code=502, detail=f"Gemini API error: {e}")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
