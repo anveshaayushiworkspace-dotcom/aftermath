@@ -17,6 +17,8 @@ export default function StudentDashboard() {
           <IssueList
             filter={{ createdBy: auth.currentUser.uid }}
             renderStatus={getStudentStatus}
+            enableEscalation
+            enableVerification
           />
         </Card>
       </div>
@@ -24,7 +26,7 @@ export default function StudentDashboard() {
   )
 }
 
-/* ---------- STATUS MAPPING FOR STUDENT ---------- */
+/* ---------- STUDENT STATUS MAPPING ---------- */
 function getStudentStatus(issue) {
   if (issue.status === "resolved") {
     return {
@@ -49,7 +51,7 @@ function getStudentStatus(issue) {
   }
 }
 
-
+/* ---------- UI HELPERS ---------- */
 function Card({ title, children }) {
   return (
     <div style={styles.card}>
