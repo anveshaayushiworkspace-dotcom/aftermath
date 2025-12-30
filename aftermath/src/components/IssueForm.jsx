@@ -13,10 +13,12 @@ export default function IssueForm({ userId }) {
       title,
       description,
       createdBy: userId,
-      status: "open",
+      status: "pending",
       escalationCount: 0,
       createdAt: serverTimestamp(),
-      resolvedAt: null,
+      updatedAt: serverTimestamp(),
+      adminResolved: false,
+      studentVerified: false,
     })
 
     setTitle("")
