@@ -2,7 +2,6 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from datetime import datetime, timezone
-import pandas as pd
 import os
 import requests
 
@@ -24,15 +23,15 @@ app.add_middleware(
 )
 
 # --------------------
-# GEMINI CONFIG (FINAL FIX)
+# GEMINI CONFIG (STABLE)
 # --------------------
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
-    raise RuntimeError("GEMINI_API_KEY is not set")
+    raise RuntimeError("GEMINI_API_KEY is missing")
 
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-1.5-flash:generateContent"
+    "gemini-pro:generateContent"
 )
 
 # --------------------
@@ -43,7 +42,6 @@ class Issue(BaseModel):
     status: str
     createdAt: str
     adminNote: str | None = ""
-
 
 class IssuePayload(BaseModel):
     issues: list[Issue]
@@ -60,66 +58,41 @@ def days_unresolved(created_at: str) -> int:
 # ROUTES
 # --------------------
 @app.get("/")
-def health_check():
+def health():
     return {"status": "Aftermath backend running"}
-
-@app.post("/debug")
-def debug(payload: dict):
-    return {"received": payload, "status": "OK"}
 
 @app.post("/after-math")
 def aftermath(payload: IssuePayload):
-    try:
-        df = pd.DataFrame([i.dict() for i in payload.issues])
-        responses = []
+    results = []
 
-        for _, row in df.iterrows():
-            days = days_unresolved(row["createdAt"])
+    for issue in payload.issues:
+        prompt = f"""
+Issue title: {issue.title}
+Status: {issue.status}
+Days unresolved: {days_unresolved(issue.createdAt)}
+Admin note: {issue.adminNote}
 
-            prompt = f"""
-Issue title: {row['title']}
-Status: {row['status']}
-Days unresolved: {days}
-Admin note: {row.get('adminNote', '')}
-
-Write ONE short, clear, public-facing sentence stating:
-- issue name
-- whether it is unresolved or resolved
-- how long
-- what the admin last said
+Write ONE clear, public-facing sentence summarizing this issue.
 """.strip()
 
-            gemini_payload = {
+        r = requests.post(
+            f"{GEMINI_URL}?key={GEMINI_API_KEY}",
+            headers={"Content-Type": "application/json"},
+            json={
                 "contents": [
-                    {
-                        "parts": [{"text": prompt}]
-                    }
+                    {"parts": [{"text": prompt}]}
                 ]
-            }
+            },
+            timeout=30,
+        )
 
-            r = requests.post(
-                f"{GEMINI_URL}?key={GEMINI_API_KEY}",
-                headers={"Content-Type": "application/json"},
-                json=gemini_payload,
-                timeout=30,
+        if r.status_code != 200:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Gemini API error: {r.text}"
             )
 
-            r.raise_for_status()
+        text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+        results.append(text)
 
-            text = (
-                r.json()
-                .get("candidates", [{}])[0]
-                .get("content", {})
-                .get("parts", [{}])[0]
-                .get("text", "")
-            )
-
-            responses.append(text)
-
-        return {"aftermath": responses}
-
-    except requests.RequestException as e:
-        raise HTTPException(status_code=502, detail=f"Gemini API error: {e}")
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return {"aftermath": results}
