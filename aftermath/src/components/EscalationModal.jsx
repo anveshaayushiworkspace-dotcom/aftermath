@@ -1,11 +1,17 @@
-export default function EscalationModal({ close }) {
+export default function EscalationModal({ issue, onConfirm, close }) {
   return (
     <div className="modal">
       <div className="modal-content">
-        <h3>Escalation Email</h3>
-        <p>This issue has crossed the accountability threshold.</p>
-        <button onClick={close}>Close</button>
+        <h3>Escalate Issue</h3>
+        <p>
+          You are escalating: <b>{issue.title}</b>
+        </p>
+        <p>This will notify higher authorities.</p>
+
+        <button onClick={onConfirm}>Confirm Escalation</button>
+        <button onClick={close}>Cancel</button>
       </div>
     </div>
   )
 }
+
