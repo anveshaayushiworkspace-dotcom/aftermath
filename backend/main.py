@@ -1,98 +1,167 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from datetime import datetime, timezone
-import os
-import requests
+import { useEffect, useState } from "react"
+import {
+  collection,
+  onSnapshot,
+  doc,
+  updateDoc,
+  serverTimestamp,
+} from "firebase/firestore"
+import { signOut } from "firebase/auth"
+import { db, auth } from "../firebase"
 
-app = FastAPI()
+export default function AdminDashboard() {
+  const [issues, setIssues] = useState([])
 
-# --------------------
-# CORS
-# --------------------
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-        "https://aftermathh.vercel.app",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, "issues"), (snapshot) => {
+      const data = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      }))
+      setIssues(data)
+    })
+    return () => unsub()
+  }, [])
 
-# --------------------
-# GEMINI CONFIG (STABLE)
-# --------------------
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-if not GEMINI_API_KEY:
-    raise RuntimeError("GEMINI_API_KEY is missing")
+  const updateStatus = async (id, status) => {
+    await updateDoc(doc(db, "issues", id), {
+      status,
+      updatedAt: serverTimestamp(),
+      ...(status === "resolved" && {
+        adminResolvedAt: serverTimestamp(),
+        adminResolved: true,
+      }),
+    })
+  }
 
-GEMINI_URL = (
-    "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-pro:generateContent"
-)
+  return (
+    <>
+      {/* TOP BAR */}
+      <div style={styles.navbar}>
+        <h2 style={{ margin: 0 }}>Admin Dashboard</h2>
+        <button onClick={() => signOut(auth)} style={styles.logoutBtn}>
+          Logout
+        </button>
+      </div>
 
-# --------------------
-# MODELS
-# --------------------
-class Issue(BaseModel):
-    title: str
-    status: str
-    createdAt: str
-    adminNote: str | None = ""
+      {/* CONTENT */}
+      <div style={styles.container}>
+        {issues.length === 0 ? (
+          <p>No issues reported.</p>
+        ) : (
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Location</th>
+                <th>Status</th>
+                <th>Last Update</th>
+                <th>Action</th>
+              </tr>
+            </thead>
 
-class IssuePayload(BaseModel):
-    issues: list[Issue]
+            <tbody>
+              {issues.map((issue) => (
+                <tr key={issue.id}>
+                  <td>{issue.title}</td>
+                  <td>{issue.location || "—"}</td>
 
-# --------------------
-# HELPERS
-# --------------------
-def days_unresolved(created_at: str) -> int:
-    created = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
-    now = datetime.now(timezone.utc)
-    return max((now - created).days, 0)
+                  <td>
+                    <span
+                      style={{
+                        ...styles.status,
+                        background:
+                          issue.status === "resolved"
+                            ? "#dcfce7"
+                            : issue.status === "ongoing"
+                            ? "#e0f2fe"
+                            : "#fef3c7",
+                        color:
+                          issue.status === "resolved"
+                            ? "#166534"
+                            : issue.status === "ongoing"
+                            ? "#075985"
+                            : "#92400e",
+                      }}
+                    >
+                      {issue.status}
+                    </span>
+                  </td>
 
-# --------------------
-# ROUTES
-# --------------------
-@app.get("/")
-def health():
-    return {"status": "Aftermath backend running"}
+                  <td>
+                    {issue.updatedAt
+                      ? new Date(
+                          issue.updatedAt.seconds * 1000
+                        ).toLocaleDateString()
+                      : "—"}
+                  </td>
 
-@app.post("/after-math")
-def aftermath(payload: IssuePayload):
-    results = []
+                  <td>
+                    <select
+                      value={issue.status}
+                      onChange={(e) =>
+                        updateStatus(issue.id, e.target.value)
+                      }
+                      style={styles.select}
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="ongoing">Ongoing</option>
+                      <option value="resolved">Resolved</option>
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </>
+  )
+}
 
-    for issue in payload.issues:
-        prompt = f"""
-Issue title: {issue.title}
-Status: {issue.status}
-Days unresolved: {days_unresolved(issue.createdAt)}
-Admin note: {issue.adminNote}
-
-Write ONE clear, public-facing sentence summarizing this issue.
-""".strip()
-
-        r = requests.post(
-            f"{GEMINI_URL}?key={GEMINI_API_KEY}",
-            headers={"Content-Type": "application/json"},
-            json={
-                "contents": [
-                    {"parts": [{"text": prompt}]}
-                ]
-            },
-            timeout=30,
-        )
-
-        if r.status_code != 200:
-            raise HTTPException(
-                status_code=502,
-                detail=f"Gemini API error: {r.text}"
-            )
-
-        text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
-        results.append(text)
-
-    return {"aftermath": results}
+/* STYLES */
+const styles = {
+  navbar: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "16px 28px",
+    borderBottom: "1px solid #e5e7eb",
+    background: "#fff",
+  },
+  logoutBtn: {
+    background: "#ef4444",
+    color: "#fff",
+    border: "none",
+    padding: "8px 14px",
+    borderRadius: "6px",
+    cursor: "pointer",
+  },
+  container: {
+    maxWidth: "1100px",
+    margin: "30px auto",
+    padding: "0 20px",
+    fontFamily: "system-ui, sans-serif",
+  },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+    background: "#fff",
+    boxShadow: "0 6px 18px rgba(0,0,0,0.06)",
+    borderRadius: "12px",
+    overflow: "hidden",
+  },
+  status: {
+    padding: "4px 10px",
+    borderRadius: "999px",
+    fontSize: "12px",
+    fontWeight: 600,
+    textTransform: "capitalize",
+  },
+  select: {
+    padding: "6px 10px",
+    borderRadius: "6px",
+    border: "1px solid #d1d5db",
+    cursor: "pointer",
+  },
+}
