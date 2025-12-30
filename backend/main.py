@@ -24,14 +24,14 @@ app.add_middleware(
 )
 
 # --------------------
-# GEMINI CONFIG (FIXED)
+# GEMINI CONFIG (FINAL FIX)
 # --------------------
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 if not GEMINI_API_KEY:
     raise RuntimeError("GEMINI_API_KEY is not set")
 
 GEMINI_URL = (
-    "https://generativelanguage.googleapis.com/v1/models/"
+    "https://generativelanguage.googleapis.com/v1beta/models/"
     "gemini-1.5-flash:generateContent"
 )
 
