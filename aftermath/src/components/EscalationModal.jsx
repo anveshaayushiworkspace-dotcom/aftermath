@@ -14,4 +14,3 @@ export default function EscalationModal({ issue, onConfirm, close }) {
     </div>
   )
 }
-
