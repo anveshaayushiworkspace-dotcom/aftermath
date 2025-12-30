@@ -30,7 +30,7 @@ export default function PublicDashboard({ onGoToLogin }) {
   const getPublicStatus = (issue) => {
     if (issue.status === "resolved") {
       return {
-        label: "Resolved (by Admin – pending verification)",
+        label: "Resolved by Admin (Pending Your Verification)",
         bg: "#dcfce7",
         color: "#166534",
       }
@@ -50,6 +50,20 @@ export default function PublicDashboard({ onGoToLogin }) {
       color: "#92400e",
     }
   }
+
+  /* ---------------- PUBLIC STATS (FY 2025) ---------------- */
+  const totalIssues = issues.length
+
+  const fullyResolved = issues.filter(
+    (i) => i.status === "closed"
+  ).length
+
+  const pendingIssues = issues.filter(
+    (i) =>
+      i.status === "pending" ||
+      i.status === "ongoing" ||
+      i.status === "resolved"
+  ).length
 
   /* ---------------- AI AFTERMATH ---------------- */
   const generateAftermath = async (issuesData) => {
@@ -91,15 +105,6 @@ export default function PublicDashboard({ onGoToLogin }) {
     }
   }
 
-  /* ---------------- STATS ---------------- */
-  const openIssues = issues.filter(
-    (i) => i.status === "pending" || i.status === "ongoing"
-  ).length
-
-  const escalated = issues.filter(
-    (i) => (i.escalationCount || 0) > 0
-  ).length
-
   return (
     <div style={styles.container}>
       <button onClick={onGoToLogin} style={styles.loginBtn}>
@@ -108,9 +113,26 @@ export default function PublicDashboard({ onGoToLogin }) {
 
       <h1 style={styles.title}>Public Accountability Dashboard</h1>
 
-      <div style={styles.statsRow}>
-        <StatCard label="Active Issues" value={openIssues} />
-        <StatCard label="Escalated Issues" value={escalated} />
+      {/* -------- TOP STATS -------- */}
+      <div style={styles.topStats}>
+        <div style={styles.statItem}>
+          <div style={styles.statNumber}>{totalIssues}</div>
+          <div style={styles.statLabel}>Total Issues (FY 2025)</div>
+        </div>
+
+        <div style={styles.statItem}>
+          <div style={{ ...styles.statNumber, color: "#166534" }}>
+            {fullyResolved}
+          </div>
+          <div style={styles.statLabel}>Fully Resolved</div>
+        </div>
+
+        <div style={styles.statItem}>
+          <div style={{ ...styles.statNumber, color: "#92400e" }}>
+            {pendingIssues}
+          </div>
+          <div style={styles.statLabel}>Pending / In Progress</div>
+        </div>
       </div>
 
       <h2 style={styles.sectionTitle}>Aftermath (AI Updates)</h2>
@@ -158,16 +180,6 @@ export default function PublicDashboard({ onGoToLogin }) {
   )
 }
 
-/* ---------------- STAT CARD ---------------- */
-function StatCard({ label, value }) {
-  return (
-    <div style={styles.statCard}>
-      <div style={styles.statValue}>{value}</div>
-      <div style={styles.statLabel}>{label}</div>
-    </div>
-  )
-}
-
 /* ---------------- STYLES ---------------- */
 const styles = {
   container: {
@@ -176,18 +188,40 @@ const styles = {
     padding: "0 20px",
     fontFamily: "system-ui, sans-serif",
   },
-  title: { fontSize: "28px", marginBottom: "24px" },
-  sectionTitle: { marginTop: "32px", marginBottom: "16px" },
-  statsRow: { display: "flex", gap: "20px" },
-  statCard: {
-    background: "#f5f7fa",
-    borderRadius: "10px",
-    padding: "20px",
-    minWidth: "180px",
-    textAlign: "center",
+  title: {
+    fontSize: "28px",
+    marginBottom: "16px",
   },
-  statValue: { fontSize: "32px", fontWeight: "bold" },
-  statLabel: { marginTop: "6px", color: "#555" },
+  sectionTitle: {
+    marginTop: "32px",
+    marginBottom: "16px",
+  },
+  topStats: {
+    display: "flex",
+    gap: "20px",
+    justifyContent: "flex-end",
+    marginBottom: "24px",
+    flexWrap: "wrap",
+  },
+  statItem: {
+    background: "linear-gradient(135deg, #ffffff, #f8fafc)",
+    border: "1px solid #e5e7eb",
+    borderRadius: "14px",
+    padding: "16px 20px",
+    minWidth: "160px",
+    boxShadow: "0 8px 20px rgba(0,0,0,0.06)",
+    textAlign: "right",
+  },
+  statNumber: {
+    fontSize: "32px",
+    fontWeight: "700",
+    color: "#111827",
+  },
+  statLabel: {
+    marginTop: "6px",
+    fontSize: "13px",
+    color: "#6b7280",
+  },
   afterCard: {
     background: "#f9fafb",
     border: "1px solid #e5e7eb",
@@ -196,7 +230,11 @@ const styles = {
     marginBottom: "10px",
     fontSize: "14px",
   },
-  issueList: { display: "flex", flexDirection: "column", gap: "16px" },
+  issueList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: "16px",
+  },
   issueCard: {
     background: "#fff",
     border: "1px solid #e5e7eb",
