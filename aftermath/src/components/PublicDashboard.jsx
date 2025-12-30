@@ -26,11 +26,35 @@ export default function PublicDashboard({ onGoToLogin }) {
     generateAftermath(data)
   }
 
+  /* ---------------- STATUS MAPPING ---------------- */
+  const getPublicStatus = (issue) => {
+    if (issue.status === "resolved") {
+      return {
+        label: "Resolved (by Admin – pending verification)",
+        bg: "#dcfce7",
+        color: "#166534",
+      }
+    }
+
+    if (issue.status === "ongoing") {
+      return {
+        label: "Ongoing (Admin)",
+        bg: "#e0f2fe",
+        color: "#075985",
+      }
+    }
+
+    return {
+      label: "Pending (Admin)",
+      bg: "#fef3c7",
+      color: "#92400e",
+    }
+  }
+
   /* ---------------- AI AFTERMATH ---------------- */
   const generateAftermath = async (issuesData) => {
     if (!issuesData || issuesData.length === 0) return
     if (!API_URL) {
-      console.error("VITE_API_URL is not defined")
       setErrorAI(true)
       return
     }
@@ -60,8 +84,7 @@ export default function PublicDashboard({ onGoToLogin }) {
 
       const data = await res.json()
       setAftermath(data.aftermath || [])
-    } catch (err) {
-      console.error("AI summary error:", err)
+    } catch {
       setErrorAI(true)
     } finally {
       setLoadingAI(false)
@@ -69,8 +92,13 @@ export default function PublicDashboard({ onGoToLogin }) {
   }
 
   /* ---------------- STATS ---------------- */
-  const openIssues = issues.filter((i) => i.status === "open").length
-  const escalated = issues.filter((i) => (i.escalationCount || 0) > 0).length
+  const openIssues = issues.filter(
+    (i) => i.status === "pending" || i.status === "ongoing"
+  ).length
+
+  const escalated = issues.filter(
+    (i) => (i.escalationCount || 0) > 0
+  ).length
 
   return (
     <div style={styles.container}>
@@ -81,18 +109,16 @@ export default function PublicDashboard({ onGoToLogin }) {
       <h1 style={styles.title}>Public Accountability Dashboard</h1>
 
       <div style={styles.statsRow}>
-        <StatCard label="Open Issues" value={openIssues} />
+        <StatCard label="Active Issues" value={openIssues} />
         <StatCard label="Escalated Issues" value={escalated} />
       </div>
 
-      <h2 style={styles.sectionTitle}>Aftermath (AI-Generated Updates)</h2>
+      <h2 style={styles.sectionTitle}>Aftermath (AI Updates)</h2>
 
-      {loadingAI && <p style={{ color: "#666" }}>Generating updates…</p>}
-
+      {loadingAI && <p>Generating updates…</p>}
       {!loadingAI && errorAI && (
         <div style={styles.afterCard}>Summary unavailable</div>
       )}
-
       {!loadingAI &&
         !errorAI &&
         aftermath.map((line, idx) => (
@@ -104,33 +130,29 @@ export default function PublicDashboard({ onGoToLogin }) {
       <h2 style={styles.sectionTitle}>Reported Issues</h2>
 
       <div style={styles.issueList}>
-        {issues.map((issue) => (
-          <div key={issue.id} style={styles.issueCard}>
-            <h3 style={styles.issueTitle}>{issue.title}</h3>
+        {issues.map((issue) => {
+          const s = getPublicStatus(issue)
+          return (
+            <div key={issue.id} style={styles.issueCard}>
+              <h3>{issue.title}</h3>
+              <p>📍 {issue.location || "Not specified"}</p>
 
-            <p style={styles.location}>
-              📍 {issue.location || "Not specified"}
-            </p>
+              <div style={styles.metaRow}>
+                <span
+                  style={{
+                    ...styles.status,
+                    backgroundColor: s.bg,
+                    color: s.color,
+                  }}
+                >
+                  {s.label}
+                </span>
 
-            <div style={styles.metaRow}>
-              <span
-                style={{
-                  ...styles.status,
-                  backgroundColor:
-                    issue.status === "open" ? "#fee2e2" : "#dcfce7",
-                  color:
-                    issue.status === "open" ? "#991b1b" : "#166534",
-                }}
-              >
-                {issue.status}
-              </span>
-
-              <span style={styles.escalation}>
-                Escalations: {issue.escalationCount || 0}
-              </span>
+                <span>Escalations: {issue.escalationCount || 0}</span>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )
@@ -154,18 +176,9 @@ const styles = {
     padding: "0 20px",
     fontFamily: "system-ui, sans-serif",
   },
-  title: {
-    fontSize: "28px",
-    marginBottom: "24px",
-  },
-  sectionTitle: {
-    marginTop: "32px",
-    marginBottom: "16px",
-  },
-  statsRow: {
-    display: "flex",
-    gap: "20px",
-  },
+  title: { fontSize: "28px", marginBottom: "24px" },
+  sectionTitle: { marginTop: "32px", marginBottom: "16px" },
+  statsRow: { display: "flex", gap: "20px" },
   statCard: {
     background: "#f5f7fa",
     borderRadius: "10px",
@@ -173,14 +186,8 @@ const styles = {
     minWidth: "180px",
     textAlign: "center",
   },
-  statValue: {
-    fontSize: "32px",
-    fontWeight: "bold",
-  },
-  statLabel: {
-    marginTop: "6px",
-    color: "#555",
-  },
+  statValue: { fontSize: "32px", fontWeight: "bold" },
+  statLabel: { marginTop: "6px", color: "#555" },
   afterCard: {
     background: "#f9fafb",
     border: "1px solid #e5e7eb",
@@ -189,23 +196,12 @@ const styles = {
     marginBottom: "10px",
     fontSize: "14px",
   },
-  issueList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "16px",
-  },
+  issueList: { display: "flex", flexDirection: "column", gap: "16px" },
   issueCard: {
-    background: "#ffffff",
+    background: "#fff",
     border: "1px solid #e5e7eb",
     borderRadius: "10px",
     padding: "16px",
-  },
-  issueTitle: {
-    margin: "0 0 8px",
-  },
-  location: {
-    margin: "0 0 12px",
-    color: "#555",
   },
   metaRow: {
     display: "flex",
@@ -216,12 +212,7 @@ const styles = {
     padding: "4px 10px",
     borderRadius: "999px",
     fontSize: "12px",
-    fontWeight: "600",
-    textTransform: "capitalize",
-  },
-  escalation: {
-    fontSize: "13px",
-    color: "#444",
+    fontWeight: 600,
   },
   loginBtn: {
     marginBottom: "20px",
