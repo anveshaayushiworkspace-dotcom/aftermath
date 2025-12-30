@@ -5,9 +5,10 @@ import {
   LightbulbOff,
   AlertTriangle,
   CheckCircle,
+  MapPin,
 } from "lucide-react"
 
-function getIssueIcon(title) {
+function getIcon(title) {
   const t = title.toLowerCase()
   if (t.includes("wifi")) return <WifiOff size={18} />
   if (t.includes("water")) return <Droplets size={18} />
@@ -15,17 +16,17 @@ function getIssueIcon(title) {
   return <AlertTriangle size={18} />
 }
 
-function getStatusBadge(status) {
+function getBadge(status) {
   if (status === "closed")
-    return <Badge color="green">Closed (Verified)</Badge>
+    return <Badge color="green">Resolved (Verified)</Badge>
 
   if (status === "resolved")
-    return <Badge color="green">Resolved (Pending Verification)</Badge>
+    return <Badge color="blue">Resolved (Pending Verification)</Badge>
 
   if (status === "ongoing")
-    return <Badge color="blue">Ongoing</Badge>
+    return <Badge color="yellow">Ongoing</Badge>
 
-  return <Badge color="yellow">Pending</Badge>
+  return <Badge color="red">Pending</Badge>
 }
 
 export default function IssueCard({ issue, onEscalate, onVerify }) {
@@ -33,10 +34,17 @@ export default function IssueCard({ issue, onEscalate, onVerify }) {
     <Card shadow="sm" radius="md" mb="md">
       <Group justify="space-between">
         <Group>
-          {getIssueIcon(issue.title)}
+          {getIcon(issue.title)}
           <Text fw={600}>{issue.title}</Text>
         </Group>
-        {getStatusBadge(issue.status)}
+        {getBadge(issue.status)}
+      </Group>
+
+      <Group mt={6} gap="xs">
+        <MapPin size={14} />
+        <Text size="sm" c="dimmed">
+          {issue.location || "Not specified"}
+        </Text>
       </Group>
 
       <Text size="sm" mt={6} c="dimmed">
@@ -45,11 +53,7 @@ export default function IssueCard({ issue, onEscalate, onVerify }) {
 
       <Group mt="sm" gap="sm">
         {(issue.status === "pending" || issue.status === "ongoing") && (
-          <Button
-            variant="light"
-            color="red"
-            onClick={onEscalate}
-          >
+          <Button variant="light" color="red" onClick={onEscalate}>
             Escalate
           </Button>
         )}
@@ -73,7 +77,12 @@ export default function IssueCard({ issue, onEscalate, onVerify }) {
           </>
         )}
       </Group>
+
+      <Text size="xs" mt="sm" c="dimmed">
+        Escalations: {issue.escalationCount || 0}
+      </Text>
     </Card>
   )
 }
+
 
