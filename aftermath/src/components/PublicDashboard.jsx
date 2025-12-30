@@ -8,7 +8,7 @@ export default function PublicDashboard({ onGoToLogin }) {
   const [issues, setIssues] = useState([])
   const [aftermath, setAftermath] = useState([])
   const [loadingAI, setLoadingAI] = useState(false)
-  const [errorAI, setErrorAI] = useState(false)
+  const [aiUnavailable, setAiUnavailable] = useState(false)
 
   useEffect(() => {
     fetchIssues()
@@ -21,59 +21,42 @@ export default function PublicDashboard({ onGoToLogin }) {
     generateAftermath(data)
   }
 
-  const getPublicStatus = issue => {
-    if (issue.status === "closed") {
-      return {
-        label: "Resolved (Verified by Student)",
-        bg: "#dcfce7",
-        color: "#166534",
-      }
-    }
-
-    if (issue.status === "resolved") {
-      return {
-        label: "Resolved by Admin (Pending Student Verification)",
-        bg: "#e0f2fe",
-        color: "#075985",
-      }
-    }
-
-    if (issue.status === "ongoing") {
-      return {
-        label: "Ongoing (Admin)",
-        bg: "#fef3c7",
-        color: "#92400e",
-      }
-    }
-
-    return {
-      label: "Pending (Admin)",
-      bg: "#fee2e2",
-      color: "#991b1b",
-    }
-  }
-
-  const totalIssues = issues.length
-  const fullyResolved = issues.filter(i => i.status === "closed").length
-  const pendingIssues = totalIssues - fullyResolved
-
-  const generateAftermath = async issuesData => {
+  const generateAftermath = async (issuesData) => {
     if (!API_URL || issuesData.length === 0) return
 
     setLoadingAI(true)
+    setAiUnavailable(false)
+
     try {
       const res = await fetch(`${API_URL}/after-math`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ issues: issuesData }),
+        body: JSON.stringify({
+          issues: issuesData.map(i => ({
+            title: i.title,
+            status: i.status,
+            createdAt: i.createdAt?.toDate
+              ? i.createdAt.toDate().toISOString()
+              : null,
+            adminNote: i.adminNote || "",
+          })),
+        }),
       })
+
       const data = await res.json()
       setAftermath(data.aftermath || [])
     } catch {
-      setErrorAI(true)
+      setAiUnavailable(true)
     } finally {
       setLoadingAI(false)
     }
+  }
+
+  const getStatusBadge = issue => {
+    if (issue.status === "closed") return "Resolved (Verified)"
+    if (issue.status === "resolved") return "Resolved by Admin"
+    if (issue.status === "ongoing") return "Ongoing"
+    return "Pending"
   }
 
   return (
@@ -84,46 +67,48 @@ export default function PublicDashboard({ onGoToLogin }) {
 
       <h1>Public Accountability Dashboard</h1>
 
-      <div style={styles.stats}>
-        <Stat label="Total Issues" value={totalIssues} />
-        <Stat label="Fully Resolved" value={fullyResolved} />
-        <Stat label="Pending / In Progress" value={pendingIssues} />
-      </div>
+      {aiUnavailable && (
+        <div style={styles.aiWarning}>
+          AI summaries unavailable. Showing system-generated updates.
+        </div>
+      )}
 
-      <h2>Reported Issues</h2>
+      {issues.map((issue, index) => (
+        <div key={issue.id} style={styles.issueCard}>
+          <h3>{issue.title}</h3>
 
-      {issues.map(issue => {
-        const s = getPublicStatus(issue)
-        return (
-          <div key={issue.id} style={styles.card}>
-            <h3>{issue.title}</h3>
-            <p>📍 {issue.location || "Not specified"}</p>
-            <span
-              style={{
-                background: s.bg,
-                color: s.color,
-                padding: "4px 10px",
-                borderRadius: "999px",
-                fontSize: "12px",
-              }}
-            >
-              {s.label}
-            </span>
-            <p style={{ float: "right" }}>
-              Escalations: {issue.escalationCount || 0}
-            </p>
+          <p style={styles.location}>
+            📍 {issue.location || "Not specified"}
+          </p>
+
+          <span style={styles.status}>
+            {getStatusBadge(issue)}
+          </span>
+
+          {/* ✅ AI SUMMARY INLINE */}
+          <div style={styles.aiBox}>
+            {loadingAI && !aftermath[index] && (
+              <span style={{ color: "#666" }}>
+                Generating AI update…
+              </span>
+            )}
+
+            {!loadingAI && aftermath[index] && (
+              <span>{aftermath[index]}</span>
+            )}
+
+            {!loadingAI && !aftermath[index] && (
+              <span style={{ color: "#666" }}>
+                No AI update available.
+              </span>
+            )}
           </div>
-        )
-      })}
-    </div>
-  )
-}
 
-function Stat({ label, value }) {
-  return (
-    <div style={styles.statCard}>
-      <div style={{ fontSize: 28, fontWeight: 700 }}>{value}</div>
-      <div style={{ color: "#666" }}>{label}</div>
+          <div style={styles.meta}>
+            Escalations: {issue.escalationCount || 0}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -133,27 +118,49 @@ const styles = {
     maxWidth: "900px",
     margin: "40px auto",
     padding: "0 20px",
+    fontFamily: "system-ui, sans-serif",
   },
   loginBtn: {
-    marginBottom: 20,
+    marginBottom: "20px",
   },
-  stats: {
-    display: "flex",
-    gap: 20,
-    marginBottom: 30,
-  },
-  statCard: {
-    background: "#f8fafc",
-    padding: 16,
-    borderRadius: 12,
-    minWidth: 160,
-    textAlign: "center",
-  },
-  card: {
+  issueCard: {
     background: "#fff",
     border: "1px solid #e5e7eb",
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: "12px",
+    padding: "16px",
+    marginBottom: "16px",
+  },
+  location: {
+    color: "#555",
+    marginBottom: "6px",
+  },
+  status: {
+    display: "inline-block",
+    background: "#f1f5f9",
+    padding: "4px 10px",
+    borderRadius: "999px",
+    fontSize: "12px",
+    marginBottom: "10px",
+  },
+  aiBox: {
+    marginTop: "10px",
+    padding: "10px 12px",
+    background: "#f9fafb",
+    border: "1px solid #e5e7eb",
+    borderRadius: "8px",
+    fontSize: "14px",
+  },
+  meta: {
+    marginTop: "8px",
+    fontSize: "13px",
+    color: "#444",
+  },
+  aiWarning: {
+    background: "#fff7ed",
+    border: "1px solid #fed7aa",
+    color: "#9a3412",
+    padding: "10px 14px",
+    borderRadius: "8px",
+    marginBottom: "16px",
   },
 }
