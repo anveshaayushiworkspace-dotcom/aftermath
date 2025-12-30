@@ -14,12 +14,41 @@ export default function StudentDashboard() {
         </Card>
 
         <Card title="Your Issues">
-          <IssueList filter={{ createdBy: auth.currentUser.uid }} />
+          <IssueList
+            filter={{ createdBy: auth.currentUser.uid }}
+            renderStatus={getStudentStatus}
+          />
         </Card>
       </div>
     </>
   )
 }
+
+/* ---------- STATUS MAPPING FOR STUDENT ---------- */
+function getStudentStatus(issue) {
+  if (issue.status === "resolved") {
+    return {
+      label: "Resolved by Admin (Pending Your Verification)",
+      bg: "#dcfce7",
+      color: "#166534",
+    }
+  }
+
+  if (issue.status === "ongoing") {
+    return {
+      label: "Ongoing (Admin Working)",
+      bg: "#e0f2fe",
+      color: "#075985",
+    }
+  }
+
+  return {
+    label: "Pending (Awaiting Admin)",
+    bg: "#fef3c7",
+    color: "#92400e",
+  }
+}
+
 
 function Card({ title, children }) {
   return (
