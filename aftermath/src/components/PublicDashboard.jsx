@@ -30,7 +30,7 @@ export default function PublicDashboard({ onGoToLogin }) {
   const getPublicStatus = (issue) => {
     if (issue.status === "resolved") {
       return {
-        label: "Resolved by Admin (Pending Your Verification)",
+        label: "Resolved by Admin (Pending Student Verification)",
         bg: "#dcfce7",
         color: "#166534",
       }
