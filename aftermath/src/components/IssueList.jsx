@@ -14,7 +14,7 @@ import EscalationModal from "./EscalationModal"
 
 export default function IssueList({ filter }) {
   const [issues, setIssues] = useState([])
-  const [escalateIssue, setEscalateIssue] = useState(null)
+  const [escalating, setEscalating] = useState(null)
 
   useEffect(() => {
     let q = collection(db, "issues")
@@ -33,10 +33,10 @@ export default function IssueList({ filter }) {
       escalationCount: (issue.escalationCount || 0) + 1,
       lastEscalatedAt: serverTimestamp(),
     })
-    setEscalateIssue(null)
+    setEscalating(null)
   }
 
-  const verifyResolution = async (issue, accepted) => {
+  const verify = async (issue, accepted) => {
     if (accepted) {
       await updateDoc(doc(db, "issues", issue.id), {
         status: "closed",
@@ -53,23 +53,23 @@ export default function IssueList({ filter }) {
   }
 
   return (
-    <div>
+    <>
       {issues.map(issue => (
         <IssueCard
           key={issue.id}
           issue={issue}
-          onEscalate={() => setEscalateIssue(issue)}
-          onVerify={verifyResolution}
+          onEscalate={() => setEscalating(issue)}
+          onVerify={verify}
         />
       ))}
 
-      {escalateIssue && (
+      {escalating && (
         <EscalationModal
-          issue={escalateIssue}
-          onConfirm={() => escalate(escalateIssue)}
-          close={() => setEscalateIssue(null)}
+          issue={escalating}
+          onConfirm={() => escalate(escalating)}
+          close={() => setEscalating(null)}
         />
       )}
-    </div>
+    </>
   )
 }
