@@ -13,7 +13,7 @@ export default function App() {
   const [role, setRole] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // 🔑 controls Public vs Login when logged out
+  
   const [showLogin, setShowLogin] = useState(false)
 
   useEffect(() => {
@@ -21,7 +21,7 @@ export default function App() {
       if (!u) {
         setUser(null)
         setRole(null)
-        setShowLogin(false) // ✅ CRITICAL FIX
+        setShowLogin(false) 
         setLoading(false)
         return
       }
@@ -37,7 +37,7 @@ export default function App() {
 
   if (loading) return null
 
-  // 🔐 LOGGED OUT FLOW
+  
   if (!user) {
     return showLogin ? (
       <Login />
@@ -46,7 +46,7 @@ export default function App() {
     )
   }
 
-  // 🔐 LOGGED IN FLOW
+  
   if (role === "admin") return <AdminDashboard />
   if (role === "student") return <StudentDashboard />
 
