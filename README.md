@@ -40,7 +40,7 @@ The focus is **visibility and follow-up**, not automation.
 
 AI (Google Gemini) is used **only for support**:
 - Summarizes issue descriptions
-- Helps admins quickly understand reported problems
+- Helps public  quickly understand reported problems
 
 AI does **not**:
 - Detect issues automatically
