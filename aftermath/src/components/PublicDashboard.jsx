@@ -14,7 +14,7 @@ export default function PublicDashboard({ onGoToLogin }) {
     fetchIssues()
   }, [])
 
-  /* ---------------- FETCH ISSUES ---------------- */
+  
   const fetchIssues = async () => {
     const snap = await getDocs(collection(db, "issues"))
     const data = snap.docs.map(d => ({
@@ -26,7 +26,7 @@ export default function PublicDashboard({ onGoToLogin }) {
     generateAftermath(data)
   }
 
-  /* ---------------- AI AFTERMATH ---------------- */
+  
   const generateAftermath = async (issuesData) => {
     if (!API_URL || issuesData.length === 0) return
 
@@ -58,7 +58,7 @@ export default function PublicDashboard({ onGoToLogin }) {
     }
   }
 
-  /* ---------------- STATUS LABEL ---------------- */
+  
   const getStatusLabel = issue => {
     if (issue.status === "closed") return "Resolved (Verified)"
     if (issue.status === "resolved") return "Resolved by Admin"
@@ -66,7 +66,7 @@ export default function PublicDashboard({ onGoToLogin }) {
     return "Pending"
   }
 
-  /* ---------------- TOP STATS ---------------- */
+  
   const totalIssues = issues.length
 
   const fullyResolved = issues.filter(
@@ -92,7 +92,7 @@ export default function PublicDashboard({ onGoToLogin }) {
 
       <h1 style={styles.title}>Public Accountability Dashboard</h1>
 
-      {/* -------- TOP STATS -------- */}
+      {/*stats on top */}
       <div style={styles.topStats}>
         <Stat label="Total Issues" value={totalIssues} />
         <Stat label="Fully Resolved" value={fullyResolved} color="#166534" />
@@ -106,7 +106,7 @@ export default function PublicDashboard({ onGoToLogin }) {
         </div>
       )}
 
-      {/* -------- ISSUES LIST -------- */}
+      {/*issue listing- */}
       {issues.map((issue, index) => (
         <div key={issue.id} style={styles.issueCard}>
           <h3 style={styles.issueTitle}>{issue.title}</h3>
@@ -147,7 +147,7 @@ export default function PublicDashboard({ onGoToLogin }) {
   )
 }
 
-/* ---------------- STAT CARD ---------------- */
+
 function Stat({ label, value, color }) {
   return (
     <div style={styles.statItem}>
