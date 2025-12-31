@@ -9,9 +9,7 @@ import requests
 
 app = FastAPI()
 
-# --------------------
-# CORS
-# --------------------
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -24,9 +22,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --------------------
-# GEMINI CONFIG
-# --------------------
+
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 GEMINI_URL = (
@@ -34,9 +30,7 @@ GEMINI_URL = (
     "gemini-1.5-flash:generateContent"
 )
 
-# --------------------
-# MODELS (FIXED)
-# --------------------
+
 class Issue(BaseModel):
     title: str
     status: str
@@ -46,9 +40,7 @@ class Issue(BaseModel):
 class IssuePayload(BaseModel):
     issues: List[Issue]
 
-# --------------------
-# HELPERS
-# --------------------
+
 def days_unresolved(created_at: Optional[str]) -> int:
     if not created_at:
         return 0
@@ -64,9 +56,7 @@ def fallback_summary(issue: Issue, days: int) -> str:
         return f"{issue.title} has been resolved after {days} days."
     return f"{issue.title} remains unresolved for {days} days."
 
-# --------------------
-# ROUTES
-# --------------------
+
 @app.get("/")
 def health_check():
     return {"status": "Aftermath backend running"}
@@ -107,7 +97,7 @@ Write ONE short, clear, public-facing sentence.
                         {"parts": [{"text": prompt}]}
                     ]
                 },
-                timeout=15,  # 🔴 IMPORTANT
+                timeout=15,  #  IMPORTANT
             )
 
             if r.status_code != 200:
@@ -125,7 +115,7 @@ Write ONE short, clear, public-facing sentence.
             responses.append(text or fallback)
 
         except Exception:
-            # 🔒 ABSOLUTE SAFETY
+            # ABSOLUTE SAFETY
             responses.append(fallback)
 
     return {"aftermath": responses}
